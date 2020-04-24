@@ -1,0 +1,8 @@
+tornado==5.0.2
+tornado-redis
+aioredis
+tormysql
+gunicorn
+supervisor
+redis
+urllib3
