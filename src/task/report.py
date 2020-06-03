@@ -10,10 +10,9 @@ from tornado_smtp.client import TornadoSMTP
 
 from source.properties import properties
 from tools.date_utils import DateUtils
-from tools.logs import logs
+from tools.logs import logs as logger
 
 date_utils = DateUtils()
-logger = logs.logger
 
 
 class Report:

@@ -4,7 +4,6 @@
 """
 import os
 import re
-import json
 from tools.logs import logs
 
 
@@ -13,7 +12,7 @@ class Properties(object):
     properties = None
     path = ''
     data = {}
-    logger = logs.logger
+    logger = logs
 
     def build(self, path):
         try:

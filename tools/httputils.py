@@ -12,103 +12,15 @@ import json
 import tornado.gen
 from tornado.httpclient import HTTPRequest
 from tornado.httpclient import AsyncHTTPClient
-from tornado.httpclient import HTTPClient
-import inspect
-from tools.logs import Logs
+from tools.logs import logs
 
-logger = Logs().logger
+logger = logs
 
 
 class HttpUtils(object):
-    @staticmethod
-    def do_get(url, params=''):
-        """
-        发送get请求
-        :param url: 
-        :param params: 
-        :return: 
-        """
-        logger.info('发送请求 url: %s, params : ', url, params)
-        url_params = '?'
-        if len(params) > 0:
-            params = urllib.parse.urlencode(params)
-            url += url_params + params
-            # for key in params:
-            #     url_params += '%s=%s&' % (key, params[key])
-            # url += url_params + 'x=1'
-
-        req = urllib.request.urlopen(url)
-        # res_data = urllib.request.urlopen(req)
-        res = req.read()
-        logger.info('请求结果 %s', res)
-        return res
 
     @staticmethod
-    def do_post(url, params={}, headers={}, is_json=False, timeout=10):
-        """
-        发送post请求
-        :param url: 
-        :param params: 
-        :return: 
-        """
-        logger.info('发送请求 url: %s, params: %s', url, json.dumps(params))
-        params_urlencode = params if isinstance(params, str) else urllib.parse.urlencode(params)
-
-        if headers:
-            req = urllib.request.Request(url=url, data=params_urlencode, headers=headers)
-        else:
-            req = urllib.request.Request(url=url, data=params_urlencode)
-
-        res_data = urllib.request.urlopen(req, timeout=timeout)
-        return_data = res_data.read()
-        logger.info('请求结果 %s', return_data)
-        if isinstance(return_data, bytes):
-            return_data = return_data.decode(encoding='utf-8', errors='ignore')
-        if is_json:
-            try:
-                return_data = json.loads(return_data)
-            except Exception as e:
-                logger.exception('JSON ERROR', e)
-        return return_data
-
-    @staticmethod
-    def do_put(url, params={}, headers={}, is_json=False):
-        """
-        发送put请求
-        :param url: 
-        :param params: 
-        :return: 
-        """
-        logger.info('发送请求 url: %s, params: %s', url, json.dumps(params))
-        params_urlencode = params if isinstance(params, str) else urllib.parse.urlencode(params)
-        if headers:
-            req = urllib.request.Request(url=url, data=params_urlencode, headers=headers)
-        else:
-            req = urllib.request.Request(url=url, data=params_urlencode)
-
-        req.get_method = lambda: 'PUT'
-        res_data = urllib.request.urlopen(req, timeout=10)
-        res = res_data.read()
-        logger.info('请求结果 %s', res)
-        if is_json:
-            try:
-                res = json.loads(res)
-            except Exception as e:
-                logger.exception('JSON ERROR', e)
-        return res
-
-    @staticmethod
-    def do_post_with_cert(url, params={}, headers={}, client_key=None, client_cert=None):
-        body = params if isinstance(params, str) else urllib.parse.urlencode(params)
-        http_request = HTTPRequest(url, 'POST', body=body, headers=headers, validate_cert=False, client_key=client_key,
-                                   client_cert=client_cert)
-        http_client = HTTPClient()
-        fetch_result = http_client.fetch(http_request)
-        return fetch_result.body
-
-    @staticmethod
-    @tornado.gen.coroutine
-    def get(url, params={}, headers={}, is_json=False):
+    async def get(url, params=None, headers=None, is_json=False):
         if params:
             url = url + '?' + urllib.parse.urlencode(params)
         # if len(params) > 0:
@@ -122,7 +34,7 @@ class HttpUtils(object):
         http_client = AsyncHTTPClient()
         return_data = None
         try:
-            fetch_result = yield http_client.fetch(http_request)
+            fetch_result = await http_client.fetch(http_request)
             return_data = fetch_result.body
         except Exception as e:
             logger.info("HTTP GET RESULT: %s",  return_data)
@@ -138,11 +50,10 @@ class HttpUtils(object):
             except Exception as e:
                 logger.exception('json error', e)
 
-        raise tornado.gen.Return(return_data)
+        return return_data
 
     @staticmethod
-    @tornado.gen.coroutine
-    def get_status(url, params={}, headers={}, is_json=False):
+    async def get_status(url, params=None, headers=None, is_json=False):
         if params:
             url = url + '?' + urllib.parse.urlencode(params)
         # if len(params) > 0:
@@ -155,16 +66,15 @@ class HttpUtils(object):
         http_request = HTTPRequest(url, 'GET', headers=headers, validate_cert=False)
         http_client = AsyncHTTPClient()
         try:
-            fetch_result = yield http_client.fetch(http_request)
+            fetch_result = await http_client.fetch(http_request)
         except Exception as e:
             logger.exception(e)
             raise e
 
-        raise tornado.gen.Return(fetch_result)
+        return fetch_result
 
     @staticmethod
-    @tornado.gen.coroutine
-    def post(url, params={}, headers={}, is_json=False, need_log=True, request_type='POST', auth_username='', auth_password='', need_cookie=False):
+    async def post(url, params=None, headers=None, is_json=False, need_log=True, request_type='POST', auth_username='', auth_password='', need_cookie=False):
         logger.info('url: %s, params: %s', url, params)
         body = params if isinstance(params, str) else urllib.parse.urlencode(params)
         if request_type != 'POST':
@@ -174,7 +84,7 @@ class HttpUtils(object):
         return_data = None
         response_headers = None
         try:
-            fetch_result = yield http_client.fetch(http_request)
+            fetch_result = await http_client.fetch(http_request)
             if need_cookie:
                 response_headers = fetch_result.headers
 
@@ -197,11 +107,11 @@ class HttpUtils(object):
                 logger.exception('json error', e)
         if need_log:
             logger.info('response: %s', return_data)
-        raise tornado.gen.Return(return_data)
+
+        return return_data
 
     @staticmethod
-    @tornado.gen.coroutine
-    def post_status(url, params={}, headers={}, is_json=False, need_log=True, request_type='POST',
+    async def post_status(url, params=None, headers=None, is_json=False, need_log=True, request_type='POST',
                     auth_username='', auth_password=''):
         logger.info('url: %s, params: %s', url, params)
         body = params if isinstance(params, str) else urllib.parse.urlencode(params)
@@ -212,7 +122,7 @@ class HttpUtils(object):
                                    auth_username=auth_username, auth_password=auth_password)
         http_client = AsyncHTTPClient()
         try:
-            fetch_result = yield http_client.fetch(http_request)
+            fetch_result = await http_client.fetch(http_request)
             return_data = fetch_result.body
         except Exception as e:
             logger.exception(e)
@@ -221,17 +131,16 @@ class HttpUtils(object):
         if need_log:
             logger.info('response: %s', return_data)
 
-        raise tornado.gen.Return(fetch_result)
+        return fetch_result
 
     @staticmethod
-    @tornado.gen.coroutine
-    def post_with_cert(url, params={}, headers={}, client_key=None, client_cert=None):
+    async def post_with_cert(url, params=None, headers=None, client_key=None, client_cert=None):
         body = params if isinstance(params, str) else urllib.parse.urlencode(params)
         http_request = HTTPRequest(url, 'POST', body=body, headers=headers, validate_cert=False, client_key=client_key,
                                    client_cert=client_cert)
         http_client = AsyncHTTPClient()
-        fetch_result = yield http_client.fetch(http_request)
-        raise tornado.gen.Return(fetch_result.body)
+        fetch_result = await http_client.fetch(http_request)
+        return fetch_result.body
 
     @staticmethod
     def able_decode(bytes_str):

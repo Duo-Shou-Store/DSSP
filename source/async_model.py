@@ -1,47 +1,35 @@
 # -*- coding:utf-8 -*-
 
-import tornado.gen
-import tornado_mysql
-from tornado_mysql import pools
+import tormysql.cursor
 
 from source.properties import properties
 from source.sql_builder import SqlBuilder
-from source.sql_builder_orm import SqlBuilderOrm
 from tools.date_json_encoder import CJsonEncoder
 from tools.common_util import CommonUtil
-from tools.date_utils import DateUtils
+from tools.date_utils import dateUtils
 from tools.logs import logs
 
 
 class AsyncModelBase(SqlBuilder):
-    async_pools = pools.Pool(dict(
+    async_pools = tormysql.helpers.ConnectionPool(
+        max_connections=int(properties.get('setting', 'mysql', 'MAX_CONNECTIONS')),
+        idle_seconds=150,
+        wait_connection_timeout=120,
         host=properties.get('setting', 'mysql', 'DB_HOST'),
         port=int(properties.get('setting', 'mysql', 'DB_PORT')),
         user=properties.get('setting', 'mysql', 'DB_USER'),
         passwd=properties.get('setting', 'mysql', 'DB_PASS'),
         db=properties.get('setting', 'mysql', 'DB_BASE'),
-        charset='utf8',
-        autocommit=False,
-        cursorclass=tornado_mysql.cursors.DictCursor
-    ),
-        max_idle_connections=5,
-        max_open_connections=int(properties.get('setting', 'mysql', 'MAX_CONNECTIONS')),
-        max_recycle_sec=int(properties.get('setting', 'mysql', 'MAX_RECYCLE_SEC'))
+        charset="utf8",
+        cursorclass=tormysql.cursor.DictCursor,
     )
 
-    tx = None
-    sql_builder_orm = None
-    if not sql_builder_orm:
-        sql_builder_orm = SqlBuilderOrm()
-
-    properties = properties
     date_encoder = CJsonEncoder
     util = CommonUtil
-    date_utils = DateUtils
-    logger = logs.logger
+    date_utils = dateUtils
+    logger = logs
 
     async def do_sqls(self, params_list):
-        # 执行多条sql
         sql = ''
         tx = None
         result = None
@@ -69,32 +57,37 @@ class AsyncModelBase(SqlBuilder):
 
                 await tx.execute(sql, value_tuple)
             if params_list:
-                yield tx.commit()
-                # result = self._gr(self.sql_constants.SUCCESS.copy())
-                result = self._gr(True)
+                await tx.commit()
+                result = True
         except Exception as e:
-            yield tx.rollback()
+            await tx.rollback()
             self.logger.exception(e)
             self.logger.info(sql)
-            raise self._gr(None)
-        raise result
+            result = None
 
-    @tornado.gen.coroutine
-    def page_find(self, table_name, params, value_tuple):
+        return result
+
+    async def page_find(self, table_name, params, value_tuple, sql='', sql_count=''):
         """
-        分页查询
-        :param params: 
-        :return: 
+        :param table_name:
+        :param params:
+        :param value_tuple:
+        :param sql:
+        :param sql_count:
+        :return:
         """
-        # 分页查询
-        sql = self.build_paginate(table_name, params)
-        sql_count = self.build_get_rows(table_name, params)
+        if not sql:
+            sql = self.build_paginate(table_name, params)
+
+        if not sql_count:
+            sql_count = self.build_get_rows(table_name, params)
+
         result = None
         try:
-            cursor = yield self.async_pools.execute(sql, value_tuple)
+            cursor = await self.async_pools.execute(sql, value_tuple)
             dict_list = cursor.fetchall()
 
-            cursor = yield self.async_pools.execute(sql_count, value_tuple)
+            cursor = await self.async_pools.execute(sql_count, value_tuple)
             dic_rows = cursor.fetchone()
             result = {
                 'list': dict_list,
@@ -104,38 +97,28 @@ class AsyncModelBase(SqlBuilder):
             self.logger.info(sql)
             self.logger.info(sql_count)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def get_rows(self, table_name, params, value_tuple):
-        """
-        统计数量
-        :param params: 
-        :return: 
-        """
+        return result
+
+    async def get_rows(self, table_name, params, value_tuple):
         sql_count = self.build_get_rows(table_name, params)
         result = 0
         try:
-            cursor = yield self.async_pools.execute(sql_count, value_tuple)
+            cursor = await self.async_pools.execute(sql_count, value_tuple)
             dic_rows = cursor.fetchone()
 
             result = dic_rows[self.sql_constants.ROW_COUNT] if dic_rows else 0
         except Exception as e:
             self.logger.info(sql_count)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def find(self, table_name, params={}, value_tuple=(), str_type='one'):
-        """
-        查询
-        :param params: 
-        :return: 
-        """
+        return result
+
+    async def find(self, table_name, params=None, value_tuple=(), str_type='one'):
         sql = self.build_select(table_name, params)
         result = False
         try:
-            cursor = yield self.async_pools.execute(sql, value_tuple)
+            cursor = await self.async_pools.execute(sql, value_tuple)
             if str_type == self.sql_constants.LIST:
                 result = cursor.fetchall()
             else:
@@ -143,26 +126,21 @@ class AsyncModelBase(SqlBuilder):
         except Exception as e:
             self.logger.info(sql)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def insert(self, table_name, params, value_tuple, auto_commit=True):
-        """
-        创建
-        :param params: 
-        :return: 
-        """
+        return result
+
+    async def insert(self, table_name, params, value_tuple, auto_commit=True):
         sql = self.build_insert(table_name, params)
         result = None
         if not self.tx:
-            self.tx = yield self.async_pools.begin()
+            self.tx = await self.async_pools.begin()
         try:
             if auto_commit:
-                cursor = yield self.tx.execute(sql, value_tuple)
-                yield self.tx.commit()
+                cursor = await self.tx.execute(sql, value_tuple)
+                await self.tx.commit()
                 self.tx = None
             else:
-                cursor = yield self.tx.execute(sql, value_tuple)
+                cursor = await self.tx.execute(sql, value_tuple)
             id = cursor.lastrowid
             result = self.sql_constants.SUCCESS.copy()
             result['last_id'] = id
@@ -171,93 +149,63 @@ class AsyncModelBase(SqlBuilder):
             self.tx.rollback()
             self.logger.info(sql)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def batch_insert(self, table_name, params, value_tuple, auto_commit=True):
-        """
-        批量插入
-        :param table_name: 
-        :param params: 
-        :param value_tuple: 
-        :param auto_commit: 
-        :return: 
-        """
+        return result
+
+    async def batch_insert(self, table_name, params, value_tuple, auto_commit=True):
         result = None
         sql = self.build_batch_insert(table_name, params)
         if not self.tx:
-            self.tx = yield self.async_pools.begin()
+            self.tx = await self.async_pools.begin()
         try:
             if auto_commit:
-                cursor = yield self.tx.execute(sql, value_tuple)
-                yield self.tx.commit()
+                cursor = await self.tx.execute(sql, value_tuple)
+                await self.tx.commit()
                 self.tx = None
             else:
-                cursor = yield self.tx.execute(sql, value_tuple)
+                cursor = await self.tx.execute(sql, value_tuple)
             result = self.sql_constants.SUCCESS.copy()
             result['affected_rows'] = cursor.rowcount
         except Exception as e:
             self.logger.info(sql)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def update(self, table_name, params, value_tuple, auto_commit=True):
-        """
-        更新
-        :param params: 
-        :return: 
-        """
+        return result
+
+    async def update(self, table_name, params, value_tuple, auto_commit=True):
         result = None
         sql = self.build_update(table_name, params)
         if not self.tx:
-            self.tx = yield self.async_pools.begin()
+            self.tx = await self.async_pools.begin()
         try:
             if auto_commit:
-                cursor = yield self.tx.execute(sql, value_tuple)
-                yield self.tx.commit()
+                cursor = await self.tx.execute(sql, value_tuple)
+                await self.tx.commit()
                 self.tx = None
             else:
-                cursor = yield self.tx.execute(sql, value_tuple)
-            # result = self.sql_constants.SUCCESS.copy()
-            # result['affected_rows'] = cursor.rowcount
+                cursor = await self.tx.execute(sql, value_tuple)
             result = cursor.rowcount
         except Exception as e:
             self.logger.info(sql)
             self.logger.exception(e)
-        raise self._gr(result)
 
-    @tornado.gen.coroutine
-    def delete(self, table_name, params, value_tuple, auto_commit=True):
-        """`
-        删除
-        :param params: 
-        :return: 
-        """
+        return result
+
+    async def delete(self, table_name, params, value_tuple, auto_commit=True):
         sql = self.build_delete(table_name, params)
         result = None
         if not self.tx:
-            self.tx = yield self.async_pools.begin()
+            self.tx = await self.async_pools.begin()
         try:
             if auto_commit:
-                cursor = yield self.tx.execute(sql, value_tuple)
-                yield self.tx.commit()
+                cursor = await self.tx.execute(sql, value_tuple)
+                await self.tx.commit()
                 self.tx = None
             else:
-                cursor = yield self.tx.execute(sql, value_tuple)
-            # result = self.sql_constants.SUCCESS
-            # result['affected_rows'] = cursor.rowcount
+                cursor = await self.tx.execute(sql, value_tuple)
             result = cursor.rowcount
         except Exception as e:
             self.logger.info(sql)
             self.logger.exception(e)
 
-        raise self._gr(result)
-
-    def _gr(self, result):
-        """
-        异步返回结果
-        :param result: 
-        :return: 
-        """
-        return tornado.gen.Return(result)
+        return result

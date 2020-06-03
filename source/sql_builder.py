@@ -5,7 +5,6 @@
 @file: sql_builder.py
 @time: 17/4/20 上午10:23
 """
-import pymysql
 from source.properties import properties
 from source.sql_constants import SqlConstants
 

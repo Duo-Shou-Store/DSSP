@@ -38,22 +38,20 @@ from source.async_model import AsyncModelBase
 from source.async_redis import AsyncRedis
 from tools.date_json_encoder import CJsonEncoder
 from tools.date_utils import DateUtils
-from tools.logs import Logs
+from tools.logs import logs as logger
 from tools.cron_utils import CronUtils
-from source.properties import Properties
+from source.properties import properties
 from task.schedule.path_conf import CONF
 import task
 
 # redis = RedisBase()
 redis = AsyncRedis()
-logger = Logs().logger
 cron_utils = CronUtils()
-properties = Properties('schedule')
 
-intervals = int(properties.get('schedule', 'intervals'))
-run_time = int(properties.get('schedule', 'run_time'))
-SCHEDULE_KEY = properties.get('schedule', 'schedule_key')
-JOB_KEY = properties.get('schedule', 'job_key')
+intervals = int(properties.get('schedule', 'schedule', 'intervals'))
+run_time = int(properties.get('schedule', 'schedule', 'run_time'))
+SCHEDULE_KEY = properties.get('schedule', 'schedule', 'schedule_key')
+JOB_KEY = properties.get('schedule', 'schedule', 'job_key')
 key_YYMMDDHHMM = '%Y%m%d%H%M'
 key_YYMMDDHHMMSS = '%Y%m%d%H%M%S'
 

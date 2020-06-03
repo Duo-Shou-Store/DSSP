@@ -9,9 +9,9 @@ import time
 import datetime
 import calendar
 
-from tools.logs import Logs
+from tools.logs import logs
 
-logger = Logs().logger
+logger = logs
 
 
 class DateUtils(object):
@@ -167,6 +167,9 @@ class DateUtils(object):
         if int(day) < int(d):
             arr = (year, mon, day)
         return "-".join("%s" % i for i in arr)
+
+
+dateUtils = DateUtils()
 
 
 if __name__ == '__main__':

@@ -30,7 +30,7 @@ class Controller(tornado.web.RequestHandler):
     escape = tornado.escape
     version = ''
     importlib = importlib
-    logger = logs.logger
+    logger = logs
 
     def initialize(self):
         """
@@ -45,7 +45,7 @@ class Controller(tornado.web.RequestHandler):
         # self.model.__del__()
         pass
 
-    async def display(self, view_name, view_path=''):
+    def display(self, view_name, view_path=''):
         """ 
         输出模板
         调用模板输出，使用当前类名为模板目录
@@ -85,14 +85,6 @@ class Controller(tornado.web.RequestHandler):
                     result[k] = value_strip
                 else:
                     result[k] = v[0].strip().decode('utf-8')
-
-            # 处理request.body数据
-            if self.request.body:
-                try:
-                    result['___body'] = self.request.body.decode(encoding='utf-8', errors='strict')
-                    result['___body'] = json.loads(result['___body'])
-                except Exception as e:
-                    result['___body'] = self.request.body
 
             return result
         else:
@@ -191,7 +183,7 @@ class server(object):
             print('no port, eg. python2 index.py 9000')
             exit()
 
-        config_file = ''
+        config_file = '../conf/'
         host = '0.0.0.0'
         port = 9000
         arguments = sys.argv

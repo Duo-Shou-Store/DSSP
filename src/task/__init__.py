@@ -8,18 +8,16 @@
 import json
 import random
 
-from tools.logs import Logs
+from tools.logs import logs as logger
 from tools.date_json_encoder import CJsonEncoder
 from tools.date_utils import DateUtils
 from source.async_redis import AsyncRedis
 from source.async_model import AsyncModelBase
-# from source.redisbase import RedisBase
 from source.properties import properties
 from .report import Report
 import sys
 import traceback
 
-logger = Logs().logger
 redis = AsyncRedis()
 date_utils = DateUtils()
 
@@ -30,33 +28,64 @@ server_key = properties.get('task', 'cache', 'servers')
 server_coroutine_key = properties.get('task', 'cache', 'server_coroutine')
 
 
-async def save_to_db(task_unique_id, service_path, method, params_json):
+async def save_to_db(data):
+    # async def save_to_db(task_unique_id, service_path, method, params_json):
     """
     保存任务到DB
-    :param task_unique_id:
-    :param service_path:
-    :param method:
-    :param params_json:
+    :param data: list
+        data[][task_unique_id]
+        data[][service_path]
+        data[][method]
+        data[][params_json]
+        data[][key1]
+        data[][key2]
+        data[][key3]
     :return:
     """
+    if isinstance(data, dict):
+        data = [data]
+
     model = AsyncModelBase()
-    key = 'task_unique_id, service_path, method, params, create_time'
-    val = '%s, %s, %s, %s, %s'
-    duplicate = [
-        'create_time = %s'
-    ]
-    value = (task_unique_id, service_path, method, params_json, DateUtils.time_now(), DateUtils.time_now())
-    result = await model.insert('tbl_cfg_task', {
-        model.sql_constants.KEY: key,
-        model.sql_constants.VAL: val,
-        model.sql_constants.DUPLICATE_KEY_UPDATE: duplicate
-    }, value)
-    if not result:
-        logger.info('Task Add [%s] to DB failed, path [%s], method [%s], params: %s',
-                    task_unique_id, service_path, method, params_json)
+    sql_list = []
+    for item in data:
+        key = 'task_unique_id, service_path, method, key1, key2, key3, params, create_time'
+        val = '%s, %s, %s, %s, %s, %s, %s, %s'
+        duplicate = [
+            'params = %s',
+            'create_time = %s'
+        ]
+        value = (
+            item['task_unique_id'],
+            item['service_path'],
+            item['method'],
+            item.get('key1', ''),
+            item.get('key2', ''),
+            item.get('key3', ''),
+            item['params_json'],
+            DateUtils.time_now(),
+            item['params_json'],
+            DateUtils.time_now()
+        )
+        sql_list.append({
+            model.sql_constants.SQL_TYPE: model.sql_constants.INSERT,
+            model.sql_constants.TABLE_NAME: 'tbl_cfg_task',
+            model.sql_constants.DICT_DATA: {
+                model.sql_constants.KEY: key,
+                model.sql_constants.VAL: val,
+                model.sql_constants.DUPLICATE_KEY_UPDATE: duplicate
+            },
+            model.sql_constants.VALUE_TUPLE: value
+        })
+    #
+    result = await model.do_sqls(sql_list)
+    if result is None:
+        for item in data:
+            logger.info('Task Add [%s] to DB failed, path [%s], method [%s], params: %s',
+                        item['task_unique_id'], item['service_path'], item['method'], item['params_json'])
     else:
-        logger.info('Task Add [%s] to DB success, path [%s], method [%s], params: %s',
-                    task_unique_id, service_path, method, params_json)
+        for item in data:
+            logger.info('Task Add [%s] to DB success, path [%s], method [%s], params: %s',
+                    item['task_unique_id'], item['service_path'], item['method'], item['params_json'])
 
     return result
 
@@ -89,7 +118,14 @@ async def update_to_db(task_unique_id, status):
     return result
 
 
-async def add(path='', method='', arguments=None, is_priority=False, sub_task=None, task_unique_id=None):
+async def add(
+        path='',
+        method='',
+        arguments=None,
+        is_priority=False,
+        sub_task=None,
+        task_unique_id=None,
+        batch_data=None):
     """
     添加任务
     :param path: 调用包文件路径
@@ -100,6 +136,13 @@ async def add(path='', method='', arguments=None, is_priority=False, sub_task=No
             sub_task['queue_key'] 目标队列key
             sub_task['task_num'] 任务数
     :param task_unique_id
+    :param batch_data: list
+        batch_data[][service_path]
+        batch_data[][method]
+        batch_data[][arguments]
+        batch_data[][key1]
+        batch_data[][key2]
+        batch_data[][key3]
     :return:
     """
     #
@@ -110,13 +153,31 @@ async def add(path='', method='', arguments=None, is_priority=False, sub_task=No
     logger.info('Task Add [%s], path [%s], method [%s], params: %s',
                 task_unique_id, path, method, arguments_json)
     #
-    await save_to_db(task_unique_id, path, method, arguments_json)
-    if (path and method and arguments) or sub_task:
-        params = {
+    if batch_data:
+        for item in batch_data:
+            if not item.get('task_unique_id'):
+                item['task_unique_id'] = str(int(DateUtils.timestamps_now())) + str(random.randrange(10000, 100000))
+            #
+            item['params_json'] = json.dumps(item['arguments'], cls=CJsonEncoder)
+            # del item['arguments']
+    else:
+        batch_data = [{
             'task_unique_id': task_unique_id,
-            'path': path,
+            'service_path': path,
             'method': method,
-            'arguments': arguments,
+            'params_json': arguments_json
+        }]
+    #
+    await save_to_db(batch_data)
+    for item in batch_data:
+        params = {
+            'task_unique_id': item['task_unique_id'],
+            'path': item['service_path'],
+            'method': item['method'],
+            'key1': item.get('key1', ''),
+            'key2': item.get('key2', ''),
+            'key3': item.get('key3', ''),
+            'arguments': item['arguments'],
             'sub_task': sub_task
         }
 
@@ -128,11 +189,14 @@ async def add(path='', method='', arguments=None, is_priority=False, sub_task=No
                 result = await redis.lpush(task_queue, params)
             #
             if result:
-                logger.info('Task Add [%s] to QUEUE success, path [%s], method [%s], params: %s',
-                            task_unique_id, path, method, arguments_json)
+                logger.info('Task Add [%s] to QUEUE success, path [%s], method [%s], '
+                            'key1 [%s], key2 [%s], key3 [%s], params: %s',
+                            item['task_unique_id'], item['service_path'], item['method'],
+                            item.get('key1', ''), item.get('key2', ''), item.get('key3', ''), item['params_json'])
             else:
-                logger.info('Task Add [%s] to QUEUE failed, path [%s], method [%s], params: %s',
-                            task_unique_id, path, method, arguments_json)
+                logger.info('Task Add [%s] to QUEUE failed, path [%s], method [%s], ',
+                            'key1 [%s], key2 [%s], key3 [%s], params: %s',
+                            item.get('key1', ''), item.get('key2', ''), item.get('key3', ''), item['params_json'])
         except Exception as e:
             await Report.report('添加任务异常', e)
 

@@ -1,8 +1,7 @@
-tornado==5.0.2
+tornado
 tornado-redis
 aioredis
 tormysql
+tornado-smtp
 gunicorn
 supervisor
-redis
-urllib3

@@ -7,16 +7,15 @@
 """
 import importlib
 
-from source.properties import Properties
+from source.properties import properties
 from tools.cron_utils import CronUtils
 from tools.date_utils import DateUtils
 from constants.error_code import Code
 
 cron_utils = CronUtils()
-properties = Properties('schedule')
-SCHEDULE_KEY = properties.get('schedule', 'schedule_key')
-JOB_KEY = properties.get('schedule', 'job_key')
-RUN_TIME = int(properties.get('schedule', 'run_time'))
+SCHEDULE_KEY = properties.get('schedule', 'schedule', 'schedule_key')
+JOB_KEY = properties.get('schedule', 'schedule', 'job_key')
+RUN_TIME = int(properties.get('schedule', 'schedule', 'run_time'))
 
 
 async def async_add_job(service_path='', method='', params={}, start_time='', cron='', job_id='', group_name='default',

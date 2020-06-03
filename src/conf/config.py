@@ -4,7 +4,5 @@
 CONF = {
     'host_path': '/api',
     'debug': False,
-    'tester': {
-        'properties_path': '/apps/conf/duoshou'
-    }
+    'default_conf': '../conf/'
 }

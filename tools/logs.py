@@ -26,7 +26,7 @@ class Logs(object):
         return self.logger
 
 
-logs = Logs()
+logs = Logs().logger
 
 
 if __name__ == '__main__':

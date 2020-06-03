@@ -5,24 +5,36 @@
 @file: common_util.py
 @time: 17/4/24 上午11:31
 """
-import json
-import cgi
 import time
 import hashlib
 import random
-import traceback
-import re
-from source.properties import Properties
-from tools.logs import Logs
-
-properties = Properties()
-logger = Logs().logger
+import shortuuid
 
 
 class CommonUtil(object):
 
-    @classmethod
-    def salt(cls, salt_len=6, is_num=False, chrset=''):
+    @staticmethod
+    def is_empty(keys, my_dict):
+        """
+        判断keys中的元素是否存在为空
+        :param keys:
+        :param my_dict:
+        :return: True/False
+        """
+        if not isinstance(keys, (str, list)):
+            return False
+
+        if isinstance(keys, str):
+            keys = [keys]
+
+        for key in keys:
+            if key not in my_dict or my_dict[key] == '':
+                return True
+
+        return False
+
+    @staticmethod
+    def salt(salt_len=6, is_num=False, chrset=''):
         """
         密码加密字符串
         生成一个固定位数的随机字符串，包含0-9a-z
@@ -41,32 +53,20 @@ class CommonUtil(object):
 
         return ''.join(salt)
 
-    @classmethod
-    def create_uuid(cls):
+    @staticmethod
+    def create_uuid():
         """
         创建随机字符串
         :return:
         """
-        text = str(time.time()) + cls.salt(12)
-        m = hashlib.md5()
-        m.update(bytes(text.encode(encoding='utf-8')))
-        return m.hexdigest()
+        return shortuuid.uuid()
 
     @staticmethod
-    def get_loader_version(path=None):
+    def md5(text):
         """
-        获取调用者的Version
+        md5加密
+        :param text:
+        :return:
         """
-        version = None
-        if path:
-            version = re.findall(r"^v(.+?)\.", path)
-            if version:
-                version = 'v' + version[0]
-
-        if not version:
-            caller = traceback.extract_stack()[-3]
-            caller_path = caller[0]
-            version = re.findall(r"/src/module/(.+?)/", caller_path)
-            if version:
-                version = version[0]
-        return version
+        result = hashlib.md5(text.encode(encoding='utf-8'))
+        return result.hexdigest()

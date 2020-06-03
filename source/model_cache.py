@@ -10,10 +10,10 @@ import tornado.gen
 from functools import wraps
 from source.async_redis import AsyncRedis
 from tools.date_json_encoder import CJsonEncoder
-from tools.logs import Logs
+from tools.logs import logs
 
 redis = AsyncRedis()
-logger = Logs().logger
+logger = logs.logger
 
 
 class CacheRouter:
