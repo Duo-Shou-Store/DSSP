@@ -27,5 +27,5 @@ class Controller(Base):
 
     async def post(self):
         params = self.params()
-        result = await self.do_service('user.admin.auth.jwt.service', 'get_access_token', params)
+        result = await self.cs('user.admin.auth.jwt.service', 'get_access_token', params)
         self.out(result)

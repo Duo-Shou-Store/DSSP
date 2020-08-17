@@ -11,7 +11,7 @@ import os
 import traceback
 
 import src.base.error as error
-from src.conf.config import CONF
+from src.config import CONF
 
 
 host_path = CONF['host_path']

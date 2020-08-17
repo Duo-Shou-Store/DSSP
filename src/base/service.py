@@ -8,8 +8,7 @@ import time
 from functools import wraps
 
 import task
-# from task import schedule
-from constants.return_code import Code
+from .return_code import Code
 from source.service_manager import ServiceManager as serviceManager
 from tools.common_util import CommonUtil
 from tools.date_utils import dateUtils
@@ -28,6 +27,7 @@ class ServiceBase(object):
     date_utils = dateUtils
     logger = logs
     task = task
+    user_data = {}
 
     def import_model(self, model_name):
         """
@@ -43,7 +43,7 @@ class ServiceBase(object):
             self.logger.exception(e)
             return None
 
-    def do_service(self, service_path, method, params):
+    def cs(self, service_path, method, params):
         """
         调用服务
         :param service_path: 
@@ -79,7 +79,7 @@ class ServiceBase(object):
         :param data:
         :return:
         """
-        result = self.return_code[return_code_key]
+        result = self.return_code[return_code_key].copy()
         if message:
             result['msg'] = message
 
@@ -97,7 +97,7 @@ class ServiceBase(object):
         :param data: 
         :return: 
         """
-        result = self._e('SUCCESS')
+        result = self._e('SUCCESS').copy()
         if data:
             result['data'] = data
         return result

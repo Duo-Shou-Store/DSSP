@@ -20,7 +20,7 @@ class AsyncModelBase(SqlBuilder):
         user=properties.get('setting', 'mysql', 'DB_USER'),
         passwd=properties.get('setting', 'mysql', 'DB_PASS'),
         db=properties.get('setting', 'mysql', 'DB_BASE'),
-        charset="utf8",
+        charset="utf8mb4",
         cursorclass=tormysql.cursor.DictCursor,
     )
 
@@ -28,6 +28,10 @@ class AsyncModelBase(SqlBuilder):
     util = CommonUtil
     date_utils = dateUtils
     logger = logs
+    # tx = None
+
+    def __init__(self):
+        self.tx = None
 
     async def do_sqls(self, params_list):
         sql = ''
@@ -132,21 +136,21 @@ class AsyncModelBase(SqlBuilder):
     async def insert(self, table_name, params, value_tuple, auto_commit=True):
         sql = self.build_insert(table_name, params)
         result = None
-        if not self.tx:
-            self.tx = await self.async_pools.begin()
+        tx = await self.async_pools.begin()
+
         try:
             if auto_commit:
-                cursor = await self.tx.execute(sql, value_tuple)
-                await self.tx.commit()
-                self.tx = None
+                cursor = await tx.execute(sql, value_tuple)
+                await tx.commit()
+                tx = None
             else:
                 cursor = await self.tx.execute(sql, value_tuple)
-            id = cursor.lastrowid
+
             result = self.sql_constants.SUCCESS.copy()
-            result['last_id'] = id
+            result['last_id'] = cursor.lastrowid
             result['affected_rows'] = cursor.rowcount
         except Exception as e:
-            self.tx.rollback()
+            tx.rollback()
             self.logger.info(sql)
             self.logger.exception(e)
 

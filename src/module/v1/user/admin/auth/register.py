@@ -31,5 +31,5 @@ class Controller(Base):
 
     async def post(self):
         params = self.params()
-        result = yield self.do_service('user.admin.auth.service', 'register', params)
+        result = yield self.cs('user.admin.auth.service', 'register', params)
         self.out(result)

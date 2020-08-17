@@ -44,7 +44,7 @@ class Service(ServiceBase):
 
         account = params['___body']['account']
         password = params['___body']['password']
-        account_res = await self.do_service('v1.user.admin.account.service', 'query_one', {
+        account_res = await self.cs('v1.user.admin.account.service', 'query_one', {
             'account': account
         })
         if account_res['code'] != 0:

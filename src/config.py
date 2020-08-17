@@ -4,5 +4,4 @@
 CONF = {
     'host_path': '/api',
     'debug': False,
-    'default_conf': '../conf/'
 }

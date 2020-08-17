@@ -1,11 +1,10 @@
 # -*- coding:utf-8 -*-
 
 """
-@author: delu
+@author onlyfu
 @file: common_util.py
-@time: 17/4/24 上午11:31
+@time 2020/6/2
 """
-import time
 import hashlib
 import random
 import shortuuid
@@ -70,3 +69,27 @@ class CommonUtil(object):
         """
         result = hashlib.md5(text.encode(encoding='utf-8'))
         return result.hexdigest()
+
+    @staticmethod
+    def check_password_level(password):
+        """
+        检查密码强度
+        @param password:
+        @return:
+        """
+        numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']
+        lower_letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q',
+                         'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+        upper_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+                         'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+        special_characters = ['`', '~', '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '=', '+',
+                              '_', ';', ':', ',', '.', '/', '?', '[', ']', '\\', '|']
+
+        #
+        s = list(password)
+        for item in s:
+            if item not in numbers and item not in lower_letters and item not in upper_letters and \
+                    item not in special_characters:
+                return 0
+
+        return 1

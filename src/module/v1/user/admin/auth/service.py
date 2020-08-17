@@ -7,7 +7,7 @@
 @time: 2020-05-24 22:43
 """
 from base.service import ServiceBase
-from .return_code import Code
+from ..return_code import Code
 
 
 class Service(ServiceBase):
@@ -32,14 +32,14 @@ class Service(ServiceBase):
             return self._e('CONFIRM_PASSWORD_NOT_MATCH')
 
         # check the account
-        account_res = await self.do_service('v1.user.admin.account.service', 'query_one', {
+        account_res = await self.cs('v1.user.admin.account.service', 'query_one', {
             'account': params['account']
         })
         if account_res['code'] == 0:
             return self._e('DATA_EXIST', message='帐户已存在')
 
         # create the account
-        result = await self.do_service('v1.user.admin.account.service', 'create', {
+        result = await self.cs('v1.user.admin.account.service', 'create', {
             'account': params['account'],
             'password': params['password'],
             'account_type': 'email',

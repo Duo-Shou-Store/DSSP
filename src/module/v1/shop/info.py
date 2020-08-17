@@ -1,9 +1,9 @@
 # -*- coding:utf-8 -*-
 
 """
-管理员信息
+店铺信息，包括创建店铺，获取店铺信息
 @author fuweiyi
-@time 2020/6/2
+@time 2020/6/11
 """
 from base.base import Base
 
@@ -14,7 +14,7 @@ class Controller(Base):
 
     async def get(self):
         """
-        查询登录用户信息
+        获取指定店铺信息
         return data:
             {
                 "admin_id": "",
@@ -23,14 +23,14 @@ class Controller(Base):
             }
         """
         params = self.params()
-        result = await self.cs('user.admin.service', 'query_info', params)
+        result = await self.cs('shop.service', 'query_info', params)
         self.out(result)
 
-    async def put(self):
+    async def post(self):
         """
-        修改登录用户信息
+        创建店铺
         @return:
         """
         params = self.params()
-        result = await self.cs('user.admin.service', 'modify_info', params)
+        result = await self.cs('shop.service', 'create_info', params)
         self.out(result)

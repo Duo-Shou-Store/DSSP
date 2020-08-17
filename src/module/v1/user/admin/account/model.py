@@ -45,6 +45,11 @@ class Model(AsyncModelBase):
             condition += ' and account = %s'
             values.append(params['account'])
 
+        #
+        if not self.util.is_empty('admin_id', params):
+            condition += ' and admin_id = %s'
+            values.append(params['admin_id'])
+
         result = await self.find('tbl_um_admin_account', {
             self.sql_constants.FIELDS: fields,
             self.sql_constants.CONDITION: condition
@@ -145,4 +150,23 @@ class Model(AsyncModelBase):
         })
         #
         result = await self.do_sqls(sql_list)
+        return result
+
+    async def modify_password(self, params):
+        """
+        修改密码
+        @param params:
+        @return:
+        """
+        fields = [
+            'password = %s',
+            'salt = %s'
+        ]
+        condition = 'admin_id = %s'
+        value = (params['password'], params['salt'], params['admin_id'])
+        #
+        result = await self.update('tbl_um_admin_account', {
+            self.sql_constants.FIELDS: fields,
+            self.sql_constants.CONDITION: condition
+        }, value)
         return result

@@ -170,12 +170,13 @@ class Controller(tornado.web.RequestHandler):
             self.finish()
 
 
-class server(object):
+class Server(object):
     """
     启用服务
     """
 
-    def start(self, route, setting):
+    @staticmethod
+    def start(route, setting):
 
         # 获取参数
         argv = sys.argv

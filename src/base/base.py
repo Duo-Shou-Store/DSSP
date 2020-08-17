@@ -4,7 +4,7 @@
 import json
 import time
 
-from constants.return_code import Code
+from .return_code import Code
 from source.controller import Controller
 from source.service_manager import ServiceManager as serviceManager
 from tools.date_json_encoder import CJsonEncoder
@@ -20,6 +20,7 @@ class Base(Controller):
     logger = logs
     _params = {}
     auth = None
+    user_data = {}
 
     def prepare(self):
         """
@@ -33,7 +34,7 @@ class Base(Controller):
         headers = self.request.headers
         content_type = headers['Content-Type']
         # 检查content type，必须使用application/json
-        if content_type != 'application/json':
+        if self.request.method in ('POST', 'PUT') and content_type != 'application/json':
             self.out(self._e('CONTENT_TYPE_ERROR'))
             self.finish()
 
@@ -63,7 +64,8 @@ class Base(Controller):
         if auth_data['user_type'] not in authorizations:
             self.out(self._e('PERMISSION_FORBIDDEN'))
 
-        self._params.update(auth_data)
+        # self._params['user_data'] = auth_data
+        self.user_data = auth_data
 
     def out(self, data):
         """ 
@@ -124,7 +126,7 @@ class Base(Controller):
         """
         self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
 
-    def do_service(self, service_path, method, params):
+    def cs(self, service_path, method, params):
         """
         调用服务
         :param service_path: 
@@ -133,9 +135,7 @@ class Base(Controller):
         :return: 
         """
         version = serviceManager.get_loader_version(service_path)
-        power_tree = self.settings['power_tree']
-        return serviceManager.do_service(service_path, method, params=params, version=version,
-                                         power=power_tree)
+        return serviceManager.do_service(service_path, method, params=params, version=version, user_data=self.user_data)
 
     def _e(self, return_code_key, message_ext='', data=''):
         """

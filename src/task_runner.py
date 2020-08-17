@@ -109,18 +109,6 @@ class TaskRunner(object):
         logger.info('sub task[%s] started.', task_id)
         await self.process(task_id, task_queue_key, is_break=True)
 
-    # async def check_server_status(self):
-    #     """
-    #     检查服务开关状态
-    #     :return:
-    #     """
-    #     while True:
-    #         status = await task.get_server_status(self.server_name)
-    #         if not status or status == '0':
-    #             self.is_running = False
-    #
-    #         await asyncio.sleep(10)
-
     async def process(self, task_id, task_queue_key=None, is_break=False):
         """
         处理任务
@@ -164,7 +152,7 @@ class TaskRunner(object):
                     if sub_task:
                         self.create_sub_task(sub_task)
                     else:
-                        result = await ServiceBase().do_service(path, method, params)
+                        result = await ServiceBase().cs(path, method, params)
                         logger.info('task[%s], path: %s, method: %s result: %s', task_id, path, method, result)
                         if not result or 'code' not in result or (result['code'] != 0 and result['code'] != 1004):
                             # failed

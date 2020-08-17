@@ -1,19 +1,18 @@
 # -*- coding:utf-8 -*-
 
 """
-@author: delu
-@file: httputils.py
-@time: 17/5/2 上午10:36
+@author: onlyfu
+@time: 2020/6/2
 """
 import urllib
 import urllib.request
 import urllib.parse
 import json
-import tornado.gen
 from tornado.httpclient import HTTPRequest
 from tornado.httpclient import AsyncHTTPClient
 from tools.logs import logs
 
+AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient', max_clients=1000)
 logger = logs
 
 
@@ -21,14 +20,16 @@ class HttpUtils(object):
 
     @staticmethod
     async def get(url, params=None, headers=None, is_json=False):
+        """
+        GET REQUEST
+        @param url:
+        @param params:
+        @param headers:
+        @param is_json:
+        @return:
+        """
         if params:
             url = url + '?' + urllib.parse.urlencode(params)
-        # if len(params) > 0:
-        #     for key in params:
-        #         # 字符串(中文)进行encode
-        #         url_params += '%s=%s&' % (key, params[key])
-        #     # 删除最后的&
-        #     url = (url + url_params)[:-1]
 
         http_request = HTTPRequest(url, 'GET', headers=headers, validate_cert=False)
         http_client = AsyncHTTPClient()
@@ -56,12 +57,6 @@ class HttpUtils(object):
     async def get_status(url, params=None, headers=None, is_json=False):
         if params:
             url = url + '?' + urllib.parse.urlencode(params)
-        # if len(params) > 0:
-        #     for key in params:
-        #         # 字符串(中文)进行encode
-        #         url_params += '%s=%s&' % (key, params[key])
-        #     # 删除最后的&
-        #     url = (url + url_params)[:-1]
 
         http_request = HTTPRequest(url, 'GET', headers=headers, validate_cert=False)
         http_client = AsyncHTTPClient()
@@ -74,20 +69,22 @@ class HttpUtils(object):
         return fetch_result
 
     @staticmethod
-    async def post(url, params=None, headers=None, is_json=False, need_log=True, request_type='POST', auth_username='', auth_password='', need_cookie=False):
+    async def post(url, params=None, headers=None, is_json=False, auth_username='', auth_password=''):
         logger.info('url: %s, params: %s', url, params)
         body = params if isinstance(params, str) else urllib.parse.urlencode(params)
-        if request_type != 'POST':
-            body = None
-        http_request = HTTPRequest(url, request_type, body=body, headers=headers, validate_cert=False, auth_username=auth_username, auth_password=auth_password)
+        http_request = HTTPRequest(
+            url=url,
+            method='POST',
+            body=body,
+            headers=headers,
+            validate_cert=False,
+            auth_username=auth_username,
+            auth_password=auth_password
+        )
         http_client = AsyncHTTPClient()
         return_data = None
-        response_headers = None
         try:
             fetch_result = await http_client.fetch(http_request)
-            if need_cookie:
-                response_headers = fetch_result.headers
-
             return_data = fetch_result.body
         except Exception as e:
             logger.info("HTTP POST RESULT: %s",  return_data)
@@ -100,36 +97,30 @@ class HttpUtils(object):
         if is_json and final_result:
             try:
                 return_data = json.loads(return_data.replace('\r\n', ''))
-
-                if need_cookie:
-                    return_data['response_headers'] = response_headers
             except Exception as e:
                 logger.exception('json error', e)
-        if need_log:
-            logger.info('response: %s', return_data)
 
         return return_data
 
     @staticmethod
-    async def post_status(url, params=None, headers=None, is_json=False, need_log=True, request_type='POST',
-                    auth_username='', auth_password=''):
+    async def post_status(url, params=None, headers=None, auth_username='', auth_password=''):
         logger.info('url: %s, params: %s', url, params)
         body = params if isinstance(params, str) else urllib.parse.urlencode(params)
-        if request_type != 'POST':
-            body = None
-
-        http_request = HTTPRequest(url, request_type, body=body, headers=headers, validate_cert=False,
-                                   auth_username=auth_username, auth_password=auth_password)
+        http_request = HTTPRequest(
+            url=url,
+            method='POST',
+            body=body,
+            headers=headers,
+            validate_cert=False,
+            auth_username=auth_username,
+            auth_password=auth_password
+        )
         http_client = AsyncHTTPClient()
         try:
             fetch_result = await http_client.fetch(http_request)
-            return_data = fetch_result.body
         except Exception as e:
             logger.exception(e)
             raise e
-
-        if need_log:
-            logger.info('response: %s', return_data)
 
         return fetch_result
 
@@ -156,23 +147,3 @@ class HttpUtils(object):
                 return False
         except Exception as e:
             return False
-
-
-if __name__ == '__main__':
-    # from tornado.ioloop import IOLoop
-    #
-    # def handle_response(response):
-    #     if response.error:
-    #         print("Error: %s" % response.error)
-    #     else:
-    #         print(response.body)
-    #
-    #
-    # http_client = AsyncHTTPClient()
-    # http_client.fetch("http://www.google.com/", handle_response)
-    # IOLoop.current().start()
-
-    import requests
-    url = 'http://www.google.com'
-    res = requests.get(url)
-    print(res.text)
