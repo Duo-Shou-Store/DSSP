@@ -22,23 +22,25 @@ class T(Tester):
         }
 
     def get_access_token(self):
-        self.path = 'v1.user.admin.auth.jwt.service'
+        self.path = 'v1.user.auth.jwt.service'
         self.method = 'get_access_token'
         self.show_result = True
         # 直接获取结果
         self.exec({
-            '___body': {
-                'account': 'fuwy@foxmail.com',
-                'password': '1234567'
+            'request_body': {
+                'account': 'admin',
+                'password': '123456',
+                'user_type': 'admin'
             }
         })
         # 1
-        # self.assert_equals({
-        #     '___body': {
-        #         'account': 'fuwy@foxmail.com',
-        #         'password': '1234567'
-        #     }
-        # }, {"code": 20101, "msg": "帐号或密码错误"})
+        self.assert_equals({
+            'request_body': {
+                'account': 'admin',
+                'password': '1234567',
+                'user_type': 'admin'
+        }
+        }, {"status": 200, "code": 20101, "msg": "帐号或密码错误"})
         # # 2
         # self.assert_in({
         #     '___body': {

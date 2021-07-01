@@ -12,7 +12,7 @@ from tornado.httpclient import HTTPRequest
 from tornado.httpclient import AsyncHTTPClient
 from tools.logs import logs
 
-AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient', max_clients=1000)
+# AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient', max_clients=1000)
 logger = logs
 
 

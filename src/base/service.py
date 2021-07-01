@@ -28,6 +28,7 @@ class ServiceBase(object):
     logger = logs
     task = task
     user_data = {}
+    context = None
 
     def import_model(self, model_name):
         """
@@ -38,7 +39,8 @@ class ServiceBase(object):
         try:
             version = serviceManager.get_loader_version()
             model = importlib.import_module('src.module.' + version + '.' + model_name)
-            return model.Model()
+            if hasattr(model, 'Model'):
+                return model.Model()
         except Exception as e:
             self.logger.exception(e)
             return None
@@ -102,6 +104,16 @@ class ServiceBase(object):
             result['data'] = data
         return result
 
+    def _end(self, key):
+        """
+        @param key:
+        @return:
+        """
+        if self.context:
+            self.context.out(self._e(key))
+        else:
+            return self._e(key)
+
     @classmethod
     def params_set(cls, model=None, data=None):
         """
@@ -131,3 +143,13 @@ class ServiceBase(object):
                 return result
             return wrapper
         return decorate
+
+    def md5(self, text):
+        """
+        md5加密
+        :param text:
+        :return:
+        """
+        result = hashlib.md5(text.encode(encoding='utf-8'))
+        return result.hexdigest()
+

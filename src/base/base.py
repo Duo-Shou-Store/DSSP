@@ -3,10 +3,13 @@
 
 import json
 import time
+import re
+from tornado.web import Finish
 
 from .return_code import Code
 from source.controller import Controller
 from source.service_manager import ServiceManager as serviceManager
+from source.properties import properties
 from tools.date_json_encoder import CJsonEncoder
 from tools.logs import logs
 from tools.jwt import JWT
@@ -22,7 +25,7 @@ class Base(Controller):
     auth = None
     user_data = {}
 
-    def prepare(self):
+    async def prepare(self):
         """
         接受请求前置方法
             1.解析域名
@@ -36,17 +39,17 @@ class Base(Controller):
         # 检查content type，必须使用application/json
         if self.request.method in ('POST', 'PUT') and content_type != 'application/json':
             self.out(self._e('CONTENT_TYPE_ERROR'))
-            self.finish()
 
         # 检查访问服务是否需要授权校验
         if self.auth:
             if self.auth[0] is not None:
-                self.check_authorization_status(self.auth[0])
+                await self.check_authorization_status(self.auth[0], self.auth[1])
 
-    def check_authorization_status(self, authorizations):
+    async def check_authorization_status(self, authorizations, no_check_control):
         """
         检查用户授权状态
         @param authorizations:
+        @param no_check_control:
         @return:
         """
         access_token = ''
@@ -66,15 +69,61 @@ class Base(Controller):
 
         # self._params['user_data'] = auth_data
         self.user_data = auth_data
+        #
+        if auth_data['user_type'] not in authorizations:
+            self.out(self._e('AUTH_ERROR'))
+
+        if auth_data['user_type'] == 'admin':
+            await self.__check_power(auth_data, no_check_control)
+
+    async def __check_power(self, user_data, no_check_control):
+        """
+        @param user_data:
+        @param no_check_control:
+        @return:
+        """
+        # 1 获取店铺权限
+        # 2 group_id=0 超级管理员,查看用户请求power是否符合店铺权限
+        # 3 group_id>0 普通管理员,查看用户请求power是否符合普通用户权限(shop_id)
+        if not no_check_control:
+            # 获取前端请求uri，替换api全段字段，用户请求权限
+            base_url_prefix = properties.get('setting', 'base', 'BASE_URL_PREFIX') \
+                .replace('BASE_URL_PREFIX=', '').replace('\n', '')
+            power = self.request.uri.replace(base_url_prefix, '')
+            if 'group_id' in user_data and int(user_data['group_id']) >= 0:
+                auth_error_flag = True
+                # 管理员menu(每个用户真正的权限树,不管是超级管理员，还是普通管理员)
+                menu_params = {
+                    'group_id': user_data['group_id'],
+                }
+                menu_result = await self.cs('v1.user.auth.menu.service', 'query_menu', menu_params)
+                shop_power = self.get_path(menu_result['data'])
+                # 检查请求url的power是否匹配用户权限树shop_power
+                for power_tree in shop_power:
+                    # 用shop_power 匹配 power
+                    # shop_power: /user/auth/power
+                    # power: /user/auth/power/query
+                    pattern = re.compile(power_tree)
+                    if pattern.match(power):
+                        auth_error_flag = False
+                        break
+
+                # 检查权限
+                if auth_error_flag:
+                    self.out(self._e('AUTH_ERROR'))
+            else:
+                self.out(self._e('AUTH_ERROR'))
 
     def out(self, data):
-        """ 
-        输出结果
-        :param data: 返回数据字典
+        """
+        @param data:
+        @return:
         """
         self.set_header("Content-Type", "application/json; charset=UTF-8")
+        self.set_status(data['status'])
+        del data['status']
         self.write(self.json.dumps(data, cls=CJsonEncoder))
-        self.finish()
+        raise Finish()
 
     def error_out(self, error, data='', status_code=500):
         """
@@ -96,35 +145,35 @@ class Base(Controller):
         重写父类get方法，接受GET请求
         如果执行到此方法，说明请求类型错误
         """
-        self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
+        self.out(self._e('REQUEST_TYPE_ERROR'))
 
     async def post(self):
         """
         重写父类post方法，接受POST请求
         如果执行到此方法，说明请求类型错误
         """
-        self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
+        self.out(self._e('REQUEST_TYPE_ERROR'))
 
     async def put(self):
         """
         重写父类put方法，接受PUT请求
         如果执行到此方法，说明请求类型错误
         """
-        self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
+        self.out(self._e('REQUEST_TYPE_ERROR'))
 
     async def delete(self):
         """
         重写父类delete方法，接受DELETE请求
         如果执行到此方法，说明请求类型错误
         """
-        self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
+        self.out(self._e('REQUEST_TYPE_ERROR'))
 
     async def patch(self):
         """
         重写父类delete方法，接受DELETE请求
         如果执行到此方法，说明请求类型错误
         """
-        self.error_out(self._e('REQUEST_TYPE_ERROR'), status_code=405)
+        self.out(self._e('REQUEST_TYPE_ERROR'))
 
     def cs(self, service_path, method, params):
         """
@@ -135,7 +184,14 @@ class Base(Controller):
         :return: 
         """
         version = serviceManager.get_loader_version(service_path)
-        return serviceManager.do_service(service_path, method, params=params, version=version, user_data=self.user_data)
+        return serviceManager.do_service(
+            service_path,
+            method,
+            params=params,
+            version=version,
+            user_data=self.user_data,
+            context=self
+        )
 
     def _e(self, return_code_key, message_ext='', data=''):
         """
@@ -202,3 +258,23 @@ class Base(Controller):
             'user_agent': user_agent,
             'cookies': cookies
         }
+
+    def get_path(self, data, power_path_list=None):
+        """
+        1 遍历用户权限树，如果有child，获得child的path，如果没有，返回power['path']
+        2 递归的遍历child获得path,直到所有child为空
+        3 将所有path加载到power_tree 列表中
+        4 获取子路径
+        :param data: 用户权限树
+        :return:
+        """
+        if power_path_list is None:
+            power_path_list = []
+        for power in data:
+            power_path_list.append(str(power['path']))
+            if power['child']:
+                self.get_path(power['child'], power_path_list)
+            # else:
+            #     power_path_list.append(str(power['path']))
+        return power_path_list
+

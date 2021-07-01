@@ -86,6 +86,15 @@ class Controller(tornado.web.RequestHandler):
                 else:
                     result[k] = v[0].strip().decode('utf-8')
 
+            # 处理request.body数据
+            if self.request.body:
+                try:
+                    result['request_body'] = self.request.body.decode(encoding='utf-8', errors='strict')
+                    result['request_body'] = json.loads(result['request_body'])
+                except Exception as e:
+                    self.logger.exception(e)
+                    pass
+
             return result
         else:
             try:
@@ -98,6 +107,7 @@ class Controller(tornado.web.RequestHandler):
                 else:
                     return value[0].strip().decode('utf-8')
             except Exception as e:
+                self.logger.exception(e)
                 return ''
 
     def import_model(self, model_name):
@@ -109,7 +119,8 @@ class Controller(tornado.web.RequestHandler):
 
         try:
             model = importlib.import_module(self.version + '.model.' + model_name)
-            return model.Model(self.model)
+            if hasattr(model, 'Model'):
+                return model.Model(self.model)
         except Exception as e:
             self.logger.exception(e)
             return None
@@ -123,24 +134,28 @@ class Controller(tornado.web.RequestHandler):
 
         try:
             service = importlib.import_module(self.version + '.service.' + service_name)
-            return service.Service()
+            if hasattr(service, 'Service'):
+                return service.Service()
         except Exception as e:
             self.logger.exception(e)
             return None
 
     def write_error(self, status_code, **kwargs):
         """
-        复写方法
-        :param status_code:
-        :param kwargs:
-        :return:
+        @param status_code:
+        @param kwargs:
+        @return:
         """
+        debug = properties.get('setting', 'base', 'DEBUG')
         self.set_header("Content-Type", "application/json; charset=UTF-8")
-        self.write({
-            'code': -status_code,
+        result = {
+            'code': status_code,
             'msg': '服务错误，请联系管理员',
-            'traceback': kwargs['traceback_error']
-        })
+        }
+        if debug and debug == 'True':
+            result['traceback'] = kwargs['traceback_error']
+
+        self.write(result)
         self.finish()
 
     def send_error(self, status_code=500, **kwargs):
@@ -151,7 +166,6 @@ class Controller(tornado.web.RequestHandler):
         :return:
         """
         if self._headers_written:
-            # gen_log.error("Cannot send error response after headers written")
             self.logger.info('Cannot send error response after headers written')
             if not self._finished:
                 self.finish()
@@ -160,6 +174,26 @@ class Controller(tornado.web.RequestHandler):
 
         if 'exc_info' in kwargs:
             kwargs['traceback_error'] = traceback.format_exc()
+
+        #
+        request = self.request
+        user_data = ''
+        request_body = ''
+        if hasattr(self, 'json') and hasattr(self, 'user_data'):
+            try:
+                user_data = self.json.dumps(self.user_data) if self.user_data else ''
+                request_body = str(request.body, encoding='utf8').replace('\n', '').replace(' ', '')
+            except Exception as e:
+                self.logger.exception(e)
+
+        error = 'ERROR LOG: {uri}, {request_body}, {user}, {traceback}'.format(
+            uri=request.uri,
+            request_body=request_body,
+            user=user_data,
+            traceback=kwargs['traceback_error'].replace('\n', '')
+        )
+        self.logger.error(error)
+
         self.set_status(status_code)
         try:
             self.write_error(status_code, **kwargs)

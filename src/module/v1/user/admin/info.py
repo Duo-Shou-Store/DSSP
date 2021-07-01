@@ -1,36 +1,41 @@
 # -*- coding:utf-8 -*-
 
 """
-管理员信息
-@author fuweiyi
-@time 2020/6/2
+@author: 萎迷一心
+@time: 2021/6/30
 """
+import tornado.gen
 from base.base import Base
 
 
 class Controller(Base):
 
-    auth = (('admin', 'platform'), )
+    auth = (('admin', ), True)
 
-    async def get(self):
-        """
-        查询登录用户信息
-        return data:
-            {
-                "admin_id": "",
-                "account": "",
-                "name": "",
-            }
-        """
+    @tornado.gen.coroutine
+    def get(self):
         params = self.params()
-        result = await self.cs('user.admin.service', 'query_info', params)
-        self.out(result)
+        params['admin_id'] = self.user_data['admin_id']
+        res = yield self.cs('user.admin.service', 'query_single_admin_info', params)
+        self.out(res)
 
-    async def put(self):
-        """
-        修改登录用户信息
-        @return:
-        """
+    @tornado.gen.coroutine
+    def post(self):
         params = self.params()
-        result = await self.cs('user.admin.service', 'modify_info', params)
-        self.out(result)
+        params['admin_id'] = self.user_data['admin_id']
+        res = yield self.do_service('user.admin.service', 'create_admin', params)
+        self.out(res)
+
+    @tornado.gen.coroutine
+    def put(self):
+        params = self.params()
+        params['admin_id'] = self.user_data['admin_id']
+        res = yield self.do_service('user.admin.service', 'modify_info', params)
+        self.out(res)
+
+    @tornado.gen.coroutine
+    def delete(self):
+        params = self.params()
+        params['admin_id'] = self.user_data['admin_id']
+        res = yield self.do_service('user.admin.service', 'delete_info', params)
+        self.out(res)

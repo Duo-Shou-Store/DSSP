@@ -22,7 +22,7 @@ class ServiceManager(object):
         pass
 
     @staticmethod
-    def do_service(service_path='', method='', params=None, version='', power=None, user_data=None):
+    def do_service(service_path='', method='', params=None, version='', power=None, user_data=None, context=None):
         """
         执行服务
         :param service_path: 
@@ -39,14 +39,18 @@ class ServiceManager(object):
         else:
             model = importlib.import_module('src.module.' + version + '.' + service_path)
 
-        service = model.Service()
-        if user_data:
-            service.user_data = user_data
-        #
-        func = getattr(service, method)
+        if hasattr(model, 'Service'):
+            service = model.Service()
+            if user_data:
+                service.user_data = user_data
+            if context:
+                service.context = context
+            #
+            func = getattr(service, method)
 
-        result = func(params)
-        return result
+            result = func(params)
+            return result
+        return None
 
     @staticmethod
     def get_loader_version(path=None):

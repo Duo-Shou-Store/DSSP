@@ -30,8 +30,8 @@ class AsyncModelBase(SqlBuilder):
     logger = logs
     # tx = None
 
-    def __init__(self):
-        self.tx = None
+    # def __init__(self):
+    #     self.tx = None
 
     async def do_sqls(self, params_list):
         sql = ''
